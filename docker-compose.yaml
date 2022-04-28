@@ -1,0 +1,51 @@
+version: '3'
+
+services:
+  db:
+    build:
+      context: ./mysql
+      dockerfile: Dockerfile
+    image: adautonheringer/db
+    command: --innodb-use-native-aio=0
+    container_name: db
+    restart: always 
+    tty: true
+    volumes:
+      - ./mysql/db:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - nginxnode
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    image: adautonheringer/nginx
+    networks:
+      - nginxnode
+    ports:
+      - "8080:80"
+    depends_on:
+      - app
+
+  app:
+    build:
+      context: ./node
+      dockerfile: Dockerfile
+    container_name: app
+    image: adautonheringer/node
+    tty: true
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 40s docker-entrypoint.sh node index.js
+    networks:
+      - nginxnode
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+
+networks:
+  nginxnode:
+    driver: bridge
